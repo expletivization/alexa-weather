@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=960, height=480, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Weather Station</title>
+
+  <!-- Keep Silk browser from timing out (Echo Show) -->
+  <script defer src="https://dagammla.gitlab.io/keep-silk-open/keep.js"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;200;300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 960px;
+      height: 480px;
+      overflow: hidden;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #09111f;
+      color: #fff;
+    }
+
+    /* Atmospheric ambient glow */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 55% 70% at 12% 50%, rgba(30, 100, 210, 0.22) 0%, transparent 70%),
+        radial-gradient(ellipse 45% 60% at 88% 15%, rgba(20, 130, 210, 0.14) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 50% at 65% 90%, rgba(15, 70, 160, 0.18) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .dashboard {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 222px 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 9px;
+      padding: 9px;
+      width: 960px;
+      height: 480px;
+      opacity: 0;
+      transition: opacity 0.7s ease;
+    }
+    .dashboard.loaded { opacity: 1; }
+
+    /* ── Glass cards ────────────────────────────────────── */
+    .card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 18px;
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Top-edge shimmer */
+    .card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 10%; right: 10%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    }
+
+    /* ── Card colour variants ───────────────────────────── */
+    .card-outdoor  { background: rgba(30,100,220,0.16); border-color: rgba(100,165,255,0.18); }
+    .card-wind     { background: rgba(80,210,170,0.09); border-color: rgba(80,210,170,0.16); }
+    .card-rain     { background: rgba(70,145,255,0.10); border-color: rgba(70,145,255,0.20); }
+    .card-uv       { background: rgba(255,200,55,0.08); border-color: rgba(255,200,55,0.16); }
+    .card-clock    { background: rgba(255,255,255,0.04); }
+
+    /* ── HERO: Outdoor ──────────────────────────────────── */
+    .card-outdoor {
+      grid-row: 1 / 3;
+      display: flex;
+      flex-direction: column;
+      padding: 18px;
+    }
+
+    .card-label {
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 6px;
+    }
+
+    .hero-temp {
+      font-size: 92px;
+      font-weight: 100;
+      letter-spacing: -6px;
+      line-height: 0.95;
+      color: #fff;
+    }
+    .hero-deg {
+      font-size: 40px;
+      font-weight: 200;
+      letter-spacing: -1px;
+      vertical-align: 28px;
+    }
+    .hero-feels {
+      font-size: 11.5px;
+      color: rgba(255,255,255,0.38);
+      margin-top: 5px;
+      font-weight: 400;
+    }
+
+    .spacer { flex: 1; }
+
+    .hero-stats { display: flex; flex-direction: column; gap: 5px; }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .stat-label { font-size: 11px; color: rgba(255,255,255,0.38); }
+    .stat-val   { font-size: 13px; color: rgba(255,255,255,0.88); font-weight: 500; }
+
+    .hum-track {
+      height: 3px;
+      background: rgba(255,255,255,0.09);
+      border-radius: 2px;
+      margin-top: 3px;
+      overflow: hidden;
+    }
+    .hum-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4a9eff, #62d4ff);
+      border-radius: 2px;
+      transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .hero-updated {
+      margin-top: 12px;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.20);
+      text-align: center;
+    }
+
+    /* ── Sensor cards (small) ───────────────────────────── */
+    .sensor-body {
+      display: flex;
+      flex-direction: column;
+      height: calc(100% - 20px); /* below label */
+    }
+
+    .big-val {
+      font-size: 30px;
+      font-weight: 200;
+      letter-spacing: -1px;
+      line-height: 1;
+      margin-top: 4px;
+    }
+    .big-val .unit {
+      font-size: 13px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.42);
+      letter-spacing: 0;
+    }
+    .sub-label {
+      font-size: 9.5px;
+      color: rgba(255,255,255,0.28);
+      margin-top: 2px;
+      letter-spacing: 0.04em;
+    }
+
+    .foot-rows { margin-top: auto; display: flex; flex-direction: column; gap: 3px; }
+    .foot-row  { display: flex; justify-content: space-between; align-items: center; }
+    .foot-key  { font-size: 10.5px; color: rgba(255,255,255,0.36); }
+    .foot-val  { font-size: 11.5px; color: rgba(255,255,255,0.80); font-weight: 500; }
+
+    /* ── Wind compass ───────────────────────────────────── */
+    .wind-top { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+    .compass {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(80,210,170,0.3);
+      position: relative;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .compass-arrow {
+      width: 2px; height: 13px;
+      background: linear-gradient(180deg, #64dcb4 0%, rgba(100,220,180,0.1) 100%);
+      border-radius: 2px;
+      transform-origin: center;
+      position: absolute;
+    }
+    .compass-dot {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+    }
+    .wind-dir-badge {
+      font-size: 12px; font-weight: 600; color: #64dcb4; letter-spacing: 0.04em;
+    }
+
+    /* ── UV gradient bar ────────────────────────────────── */
+    .uv-track {
+      height: 3.5px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #4caf50 0%, #ffeb3b 30%, #ff9800 60%, #f44336 80%, #9c27b0 100%);
+      position: relative;
+      margin-top: 6px;
+    }
+    .uv-dot {
+      width: 9px; height: 9px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+      transition: left 1s ease;
+    }
+
+    /* ── Clock card ─────────────────────────────────────── */
+    .card-clock {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+    }
+    .clock-time {
+      font-size: 40px; font-weight: 200;
+      letter-spacing: -2px; line-height: 1;
+    }
+    .clock-date {
+      font-size: 10.5px;
+      color: rgba(255,255,255,0.35);
+      margin-top: 5px;
+      letter-spacing: 0.04em;
+    }
+    .pulse-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #4a9eff;
+      margin: 10px auto 0;
+      transition: background 0.6s ease;
+    }
+    @keyframes breathe {
+      0%,100% { opacity: 0.35; transform: scale(1); }
+      50%      { opacity: 1;    transform: scale(1.4); }
+    }
+    .pulse-dot { animation: breathe 2.5s ease-in-out infinite; }
+
+    /* ── Loading overlay ────────────────────────────────── */
+    #loadingOverlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: #09111f;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px;
+      transition: opacity 0.6s ease;
+    }
+    #loadingOverlay.gone { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 30px; height: 30px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-top-color: #4a9eff;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-msg { font-size: 12px; color: rgba(255,255,255,0.3); letter-spacing: 0.1em; }
+  </style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-msg">Connecting to station…</div>
+</div>
+
+<!-- Dashboard -->
+<div class="dashboard" id="dashboard">
+
+  <!-- ── OUTDOOR HERO ── -->
+  <div class="card card-outdoor">
+    <div class="card-label">Outdoor</div>
+    <div>
+      <div class="hero-temp" id="outTemp">--<span class="hero-deg">°</span></div>
+      <div class="hero-feels" id="outFeels">Feels like --°F</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="hero-stats">
+      <div class="stat-row">
+        <span class="stat-label">Humidity</span>
+        <span class="stat-val" id="outHum">--%</span>
+      </div>
+      <div class="hum-track"><div class="hum-fill" id="humFill" style="width:0%"></div></div>
+      <div style="margin-top:4px"></div>
+      <div class="stat-row">
+        <span class="stat-label">Dew Point</span>
+        <span class="stat-val" id="outDew">--°F</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">App. Temp</span>
+        <span class="stat-val" id="outApp">--°F</span>
+      </div>
+    </div>
+    <div class="hero-updated" id="updatedAt">—</div>
+  </div>
+
+  <!-- ── INDOOR ── -->
+  <div class="card">
+    <div class="card-label">Indoor</div>
+    <div class="sensor-body">
+      <div class="big-val" id="inTemp">--<span class="unit">°F</span></div>
+      <div class="spacer"></div>
+      <div class="foot-rows">
+        <div class="foot-row">
+          <span class="foot-key">Humidity</span>
+          <span class="foot-val" id="inHum">--%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── WIND ── -->
+  <div class="card card-wind">
+    <div class="card-label">Wind</div>
+    <div class="sensor-body">
+      <div class="wind-top">
+        <div class="compass">
+          <div class="compass-arrow" id="windArrow"></div>
+          <div class="compass-dot"></div>
+        </div>
+        <div>
+          <div class="big-val" style="margin-top:0" id="windSpeed">--<span class="unit"> mph</span></div>
+          <div class="wind-dir-badge" id="windDir">--</div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="foot-rows">
+        <div class="foot-row">
+          <span class="foot-key">Gust</span>
+          <span class="foot-val" id="windGust">-- mph</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RAINFALL ── -->
+  <div class="card card-rain">
+    <div class="card-label">Rainfall</div>
+    <div class="sensor-body">
+      <div class="big-val" id="rainDaily">--<span class="unit"> in</span></div>
+      <div class="sub-label">today</div>
+      <div class="spacer"></div>
+      <div class="foot-rows">
+        <div class="foot-row">
+          <span class="foot-key">Rate</span>
+          <span class="foot-val" id="rainRate">--</span>
+        </div>
+        <div class="foot-row">
+          <span class="foot-key">Monthly</span>
+          <span class="foot-val" id="rainMonth">--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PRESSURE ── -->
+  <div class="card">
+    <div class="card-label">Pressure</div>
+    <div class="sensor-body">
+      <div class="big-val" id="pressRel">--<span class="unit"> inHg</span></div>
+      <div class="sub-label">relative</div>
+      <div class="spacer"></div>
+      <div class="foot-rows">
+        <div class="foot-row">
+          <span class="foot-key">Absolute</span>
+          <span class="foot-val" id="pressAbs">--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── UV & SOLAR ── -->
+  <div class="card card-uv">
+    <div class="card-label">Solar &amp; UV</div>
+    <div class="sensor-body">
+      <div class="big-val" id="solar">--<span class="unit"> W/m²</span></div>
+      <div class="spacer"></div>
+      <div class="foot-rows">
+        <div class="foot-row">
+          <span class="foot-key">UV Index</span>
+          <span class="foot-val" id="uvi" style="font-weight:600">--</span>
+        </div>
+        <div class="uv-track">
+          <div class="uv-dot" id="uvDot" style="left:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CLOCK ── -->
+  <div class="card card-clock">
+    <div class="clock-time" id="clockTime">--:--</div>
+    <div class="clock-date" id="clockDate">—</div>
+    <div class="pulse-dot" id="pulseDot"></div>
+  </div>
+
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────
+  const API_KEY  = '8c58870e-bbfd-405f-b785-ec7ed5663582';
+  const APP_KEY  = '11C8F21FCADE94BCE4B1CF1A04A72BAC';
+  const MAC      = '88:57:21:1D:4C:6B';
+  const INTERVAL = 60_000; // ms
+
+  // ── Helpers ─────────────────────────────────────────────
+  function gv(group, key, dec = 1) {
+    const v = parseFloat(group?.[key]?.value);
+    return isNaN(v) ? null : +v.toFixed(dec);
+  }
+
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function setHTML(id, html) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+
+  function degToCardinal(deg) {
+    const d = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return d[Math.round(deg / 22.5) % 16];
+  }
+
+  function uvColor(uvi) {
+    if (uvi <= 2)  return '#4caf50';
+    if (uvi <= 5)  return '#f9c22e';
+    if (uvi <= 7)  return '#ff9800';
+    if (uvi <= 10) return '#f44336';
+    return '#9c27b0';
+  }
+
+  // ── Fetch & Render ──────────────────────────────────────
+  async function fetchWeather() {
+    const params = new URLSearchParams({
+      application_key:       APP_KEY,
+      api_key:               API_KEY,
+      mac:                   MAC,
+      call_back:             'all',
+      temp_unitid:           '2',  // Fahrenheit
+      pressure_unitid:       '4',  // inHg
+      wind_speed_unitid:     '9',  // mph
+      rainfall_unitid:       '12', // inches
+      solar_irradiance_unitid: '16' // W/m²
+    });
+
+    try {
+      const res  = await fetch(`https://api.ecowitt.net/api/v3/device/real_time?${params}`);
+      const json = await res.json();
+      if (json.code !== 0) throw new Error(json.msg ?? 'API error');
+
+      const d = json.data;
+
+      // Outdoor
+      const outT = gv(d.outdoor, 'temperature');
+      setHTML('outTemp', outT != null ? `${outT}<span class="hero-deg">°</span>` : '--<span class="hero-deg">°</span>');
+
+      const feels = gv(d.outdoor, 'feels_like') ?? gv(d.outdoor, 'app_temp');
+      setText('outFeels', feels != null ? `Feels like ${feels}°F` : '');
+
+      const hum = gv(d.outdoor, 'humidity', 0);
+      setText('outHum', hum != null ? `${hum}%` : '--%');
+      document.getElementById('humFill').style.width = hum != null ? `${hum}%` : '0%';
+
+      const dew = gv(d.outdoor, 'dew_point');
+      setText('outDew', dew != null ? `${dew}°F` : '--°F');
+
+      const app = gv(d.outdoor, 'app_temp') ?? gv(d.outdoor, 'feels_like');
+      setText('outApp', app != null ? `${app}°F` : '--°F');
+
+      // Indoor
+      const inT = gv(d.indoor, 'temperature');
+      setHTML('inTemp', inT != null ? `${inT}<span class="unit">°F</span>` : '--');
+      const inH = gv(d.indoor, 'humidity', 0);
+      setText('inHum', inH != null ? `${inH}%` : '--%');
+
+      // Wind
+      const ws = gv(d.wind, 'wind_speed');
+      setHTML('windSpeed', ws != null ? `${ws}<span class="unit"> mph</span>` : '--');
+
+      const wd = gv(d.wind, 'wind_direction', 0);
+      if (wd != null) {
+        setText('windDir', degToCardinal(wd));
+        document.getElementById('windArrow').style.transform = `rotate(${wd}deg)`;
+      }
+
+      const wg = gv(d.wind, 'wind_gust');
+      setText('windGust', wg != null ? `${wg} mph` : '--');
+
+      // Rain
+      const rd = gv(d.rainfall, 'daily', 2);
+      setHTML('rainDaily', rd != null ? `${rd}<span class="unit"> in</span>` : '--');
+      const rr = gv(d.rainfall, 'rain_rate', 3);
+      setText('rainRate', rr != null ? `${rr} in/hr` : '--');
+      const rm = gv(d.rainfall, 'monthly', 2);
+      setText('rainMonth', rm != null ? `${rm} in` : '--');
+
+      // Pressure
+      const pr = gv(d.pressure, 'relative', 2);
+      setHTML('pressRel', pr != null ? `${pr}<span class="unit"> inHg</span>` : '--');
+      const pa = gv(d.pressure, 'absolute', 2);
+      setText('pressAbs', pa != null ? `${pa} inHg` : '--');
+
+      // Solar & UV
+      const sol = gv(d.solar_and_uvi, 'solar', 0);
+      setHTML('solar', sol != null ? `${sol}<span class="unit"> W/m²</span>` : '--');
+
+      const uvI = gv(d.solar_and_uvi, 'uvi', 0);
+      if (uvI != null) {
+        const uvEl = document.getElementById('uvi');
+        uvEl.textContent = uvI;
+        uvEl.style.color = uvColor(uvI);
+        const pct = Math.min(uvI / 12, 1) * 100;
+        document.getElementById('uvDot').style.left = `${pct}%`;
+      }
+
+      // Updated timestamp + success indicator
+      const now = new Date();
+      setText('updatedAt', `Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      flashDot('#34c759');
+
+      // Show dashboard on first load
+      document.getElementById('loadingOverlay').classList.add('gone');
+      document.getElementById('dashboard').classList.add('loaded');
+
+    } catch (err) {
+      console.error('Ecowitt fetch error:', err);
+      setText('updatedAt', 'Fetch failed — retrying…');
+      flashDot('#ff453a');
+    }
+  }
+
+  function flashDot(color) {
+    const dot = document.getElementById('pulseDot');
+    dot.style.background = color;
+    setTimeout(() => { dot.style.background = '#4a9eff'; }, 1500);
+  }
+
+  // ── Clock ────────────────────────────────────────────────
+  function tick() {
+    const now = new Date();
+    setText('clockTime', now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    setText('clockDate', now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }));
+  }
+
+  // ── Init ─────────────────────────────────────────────────
+  tick();
+  setInterval(tick, 10_000);
+  fetchWeather();
+  setInterval(fetchWeather, INTERVAL);
+</script>
+</body>
+</html>
