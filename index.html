@@ -511,7 +511,7 @@
       const wd = gv(d.wind, 'wind_direction', 0);
       if (wd != null) {
         setText('windDir', degToCardinal(wd));
-        document.getElementById('windArrow').style.transform = `rotate(${wd}deg)`;
+        document.getElementById('windArrow').style.transform = `rotate(${wd + 180}deg)`;
       }
 
       const wg = gv(d.wind, 'wind_gust');
