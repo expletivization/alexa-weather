@@ -157,34 +157,34 @@
     }
 
     .big-val {
-      font-size: 30px;
-      font-weight: 200;
-      letter-spacing: -1px;
+      font-size: 48px;
+      font-weight: 100;
+      letter-spacing: -2.5px;
       line-height: 1;
       margin-top: 4px;
     }
     .big-val .unit {
-      font-size: 13px;
+      font-size: 16px;
       font-weight: 400;
       color: rgba(255,255,255,0.42);
       letter-spacing: 0;
     }
     .sub-label {
-      font-size: 9.5px;
+      font-size: 10px;
       color: rgba(255,255,255,0.28);
       margin-top: 2px;
       letter-spacing: 0.04em;
     }
 
-    .foot-rows { margin-top: auto; display: flex; flex-direction: column; gap: 3px; }
+    .foot-rows { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
     .foot-row  { display: flex; justify-content: space-between; align-items: center; }
-    .foot-key  { font-size: 10.5px; color: rgba(255,255,255,0.36); }
-    .foot-val  { font-size: 11.5px; color: rgba(255,255,255,0.80); font-weight: 500; }
+    .foot-key  { font-size: 11px; color: rgba(255,255,255,0.36); }
+    .foot-val  { font-size: 13.5px; color: rgba(255,255,255,0.80); font-weight: 500; }
 
     /* ── Wind compass ───────────────────────────────────── */
-    .wind-top { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+    .wind-top { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
     .compass {
-      width: 38px; height: 38px;
+      width: 54px; height: 54px;
       border-radius: 50%;
       border: 1.5px solid rgba(80,210,170,0.3);
       position: relative;
@@ -192,19 +192,19 @@
       display: flex; align-items: center; justify-content: center;
     }
     .compass-arrow {
-      width: 2px; height: 13px;
+      width: 2.5px; height: 18px;
       background: linear-gradient(180deg, #64dcb4 0%, rgba(100,220,180,0.1) 100%);
       border-radius: 2px;
       transform-origin: center;
       position: absolute;
     }
     .compass-dot {
-      width: 4px; height: 4px;
+      width: 5px; height: 5px;
       border-radius: 50%;
       background: rgba(255,255,255,0.2);
     }
     .wind-dir-badge {
-      font-size: 12px; font-weight: 600; color: #64dcb4; letter-spacing: 0.04em;
+      font-size: 14px; font-weight: 600; color: #64dcb4; letter-spacing: 0.04em; margin-top: 2px;
     }
 
     /* ── UV gradient bar ────────────────────────────────── */
@@ -233,13 +233,13 @@
       text-align: center;
     }
     .clock-time {
-      font-size: 40px; font-weight: 200;
-      letter-spacing: -2px; line-height: 1;
+      font-size: 52px; font-weight: 200;
+      letter-spacing: -3px; line-height: 1;
     }
     .clock-date {
-      font-size: 10.5px;
+      font-size: 11px;
       color: rgba(255,255,255,0.35);
-      margin-top: 5px;
+      margin-top: 6px;
       letter-spacing: 0.04em;
     }
     .pulse-dot {
@@ -314,9 +314,9 @@
     <div class="hero-updated" id="updatedAt">—</div>
   </div>
 
-  <!-- ── INDOOR ── -->
+  <!-- ── BARN (Indoor) ── -->
   <div class="card">
-    <div class="card-label">Indoor</div>
+    <div class="card-label">Barn</div>
     <div class="sensor-body">
       <div class="big-val" id="inTemp">--<span class="unit">°F</span></div>
       <div class="spacer"></div>
@@ -339,7 +339,7 @@
           <div class="compass-dot"></div>
         </div>
         <div>
-          <div class="big-val" style="margin-top:0" id="windSpeed">--<span class="unit"> mph</span></div>
+          <div class="big-val" style="margin-top:0;font-size:44px" id="windSpeed">--<span class="unit"> mph</span></div>
           <div class="wind-dir-badge" id="windDir">--</div>
         </div>
       </div>
