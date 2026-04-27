@@ -313,10 +313,6 @@
         <span class="stat-label">Dew Point</span>
         <span class="stat-val" id="outDew">--°F</span>
       </div>
-      <div class="stat-row">
-        <span class="stat-label">Feels Like</span>
-        <span class="stat-val" id="outApp">--°F</span>
-      </div>
     </div>
     <div class="hero-updated" id="updatedAt">—</div>
   </div>
@@ -486,7 +482,10 @@
       setHTML('outTemp', outT != null ? `${outT}<span class="hero-deg">°</span>` : '--<span class="hero-deg">°</span>');
 
       const feels = gv(d.outdoor, 'feels_like') ?? gv(d.outdoor, 'app_temp');
-      setText('outFeels', feels != null ? `Feels like ${feels}°F` : '');
+      const feelsDiffers = feels != null && outT != null && Math.abs(feels - outT) >= 1;
+      const feelsEl = document.getElementById('outFeels');
+      feelsEl.textContent = feelsDiffers ? `Feels like ${feels}°F` : '';
+      feelsEl.style.display = feelsDiffers ? '' : 'none';
 
       const hum = gv(d.outdoor, 'humidity', 0);
       setText('outHum', hum != null ? `${hum}%` : '--%');
