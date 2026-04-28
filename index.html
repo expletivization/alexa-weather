@@ -528,8 +528,6 @@
       const rain = (Object.keys(d.rainfall_piezo ?? {}).length ? d.rainfall_piezo : null)
                 ?? (Object.keys(d.rainfall ?? {}).length ? d.rainfall : null)
                 ?? {};
-      console.log('Full data keys:', Object.keys(d));
-      console.log('Rainfall data:', JSON.stringify(rain));
 
       // Piezo sensors return mm regardless of unit setting — convert to inches
       const mmToIn = v => v != null ? +(v / 25.4).toFixed(2) : null;
