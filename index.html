@@ -376,6 +376,10 @@
           <span class="foot-key">This week</span>
           <span class="foot-val" id="rainWeekly">--</span>
         </div>
+        <div class="foot-row">
+          <span class="foot-key">This month</span>
+          <span class="foot-val" id="rainMonthly">--</span>
+        </div>
       </div>
     </div>
   </div>
@@ -527,18 +531,24 @@
       console.log('Full data keys:', Object.keys(d));
       console.log('Rainfall data:', JSON.stringify(rain));
 
-      // The v3 API uses these subkeys (try both naming conventions)
-      const rd = gv(rain, 'daily', 2) ?? gv(rain, 'day', 2);
+      // Piezo sensors return mm regardless of unit setting — convert to inches
+      const mmToIn = v => v != null ? +(v / 25.4).toFixed(2) : null;
+
+      const rd = mmToIn(gv(rain, 'daily', 4));
       setHTML('rainDaily', rd != null ? `${rd}<span class="unit"> in</span>` : `--<span class="unit"> in</span>`);
 
-      const rh = gv(rain, 'hourly', 2) ?? gv(rain, 'hour', 2);
+      const rh = mmToIn(gv(rain, '1_hour', 4));
       setText('rainHourly', rh != null ? `${rh} in` : '--');
 
-      const rr = gv(rain, 'rain_rate', 2) ?? gv(rain, 'rate', 2);
+      const rrRaw = gv(rain, 'rain_rate', 4);
+      const rr = mmToIn(rrRaw);
       setText('rainRate', rr != null ? `${rr} in/hr` : '--');
 
-      const rw = gv(rain, 'weekly', 2) ?? gv(rain, 'week', 2);
+      const rw = mmToIn(gv(rain, 'weekly', 4));
       setText('rainWeekly', rw != null ? `${rw} in` : '--');
+
+      const rm = mmToIn(gv(rain, 'monthly', 4));
+      setText('rainMonthly', rm != null ? `${rm} in` : '--');
 
       // Pressure
       const pr = gv(d.pressure, 'relative', 2);
