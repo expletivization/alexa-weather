@@ -603,9 +603,9 @@
   tick();
   setInterval(tick, 10_000);
   
-  // On page load, scroll down slightly to hide Silk address bar
+  // On page load, scroll down to hide Silk address bar
   window.addEventListener('load', () => {
-    setTimeout(() => { window.scrollBy(0, 20); }, 300);
+    setTimeout(() => { window.scrollBy(0, 120); }, 800);
   });
   
   fetchWeather();
