@@ -365,12 +365,16 @@
       <div class="spacer"></div>
       <div class="foot-rows">
         <div class="foot-row">
+          <span class="foot-key">Last hour</span>
+          <span class="foot-val" id="rainHourly">--</span>
+        </div>
+        <div class="foot-row">
           <span class="foot-key">Rate</span>
           <span class="foot-val" id="rainRate">--</span>
         </div>
         <div class="foot-row">
-          <span class="foot-key">Monthly</span>
-          <span class="foot-val" id="rainMonth">--</span>
+          <span class="foot-key">This week</span>
+          <span class="foot-val" id="rainWeekly">--</span>
         </div>
       </div>
     </div>
@@ -516,13 +520,22 @@
       const wg = gv(d.wind, 'wind_gust');
       setText('windGust', wg != null ? `${wg} mph` : '--');
 
-      // Rain
-      const rd = gv(d.rainfall, 'daily', 2);
-      setHTML('rainDaily', rd != null ? `${rd}<span class="unit"> in</span>` : '--');
-      const rr = gv(d.rainfall, 'rain_rate', 3);
+      // Rain — log raw object to console for debugging
+      const rain = d.rainfall ?? d.rain ?? {};
+      console.log('Rainfall data:', JSON.stringify(rain));
+
+      // The v3 API uses these subkeys (try both naming conventions)
+      const rd = gv(rain, 'daily', 2) ?? gv(rain, 'day', 2);
+      setHTML('rainDaily', rd != null ? `${rd}<span class="unit"> in</span>` : `--<span class="unit"> in</span>`);
+
+      const rh = gv(rain, 'hourly', 2) ?? gv(rain, 'hour', 2);
+      setText('rainHourly', rh != null ? `${rh} in` : '--');
+
+      const rr = gv(rain, 'rain_rate', 2) ?? gv(rain, 'rate', 2);
       setText('rainRate', rr != null ? `${rr} in/hr` : '--');
-      const rm = gv(d.rainfall, 'monthly', 2);
-      setText('rainMonth', rm != null ? `${rm} in` : '--');
+
+      const rw = gv(rain, 'weekly', 2) ?? gv(rain, 'week', 2);
+      setText('rainWeekly', rw != null ? `${rw} in` : '--');
 
       // Pressure
       const pr = gv(d.pressure, 'relative', 2);
