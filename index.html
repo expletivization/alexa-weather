@@ -466,7 +466,7 @@
       application_key:       APP_KEY,
       api_key:               API_KEY,
       mac:                   MAC,
-      call_back:             'all',
+      call_back:             'outdoor,indoor,wind,rainfall,pressure,solar_and_uvi',
       temp_unitid:           '2',  // Fahrenheit
       pressure_unitid:       '4',  // inHg
       wind_speed_unitid:     '9',  // mph
@@ -522,6 +522,7 @@
 
       // Rain — log raw object to console for debugging
       const rain = d.rainfall ?? d.rain ?? {};
+      console.log('Full data keys:', Object.keys(d));
       console.log('Rainfall data:', JSON.stringify(rain));
 
       // The v3 API uses these subkeys (try both naming conventions)
