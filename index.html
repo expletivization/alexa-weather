@@ -602,6 +602,12 @@
   // ── Init ─────────────────────────────────────────────────
   tick();
   setInterval(tick, 10_000);
+  
+  // On page load, scroll down slightly to hide Silk address bar
+  window.addEventListener('load', () => {
+    setTimeout(() => { window.scrollBy(0, 20); }, 300);
+  });
+  
   fetchWeather();
   setInterval(fetchWeather, INTERVAL);
 </script>
