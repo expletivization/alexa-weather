@@ -466,7 +466,7 @@
       application_key:       APP_KEY,
       api_key:               API_KEY,
       mac:                   MAC,
-      call_back:             'outdoor,indoor,wind,rainfall,pressure,solar_and_uvi',
+      call_back:             'outdoor,indoor,wind,rainfall,rainfall_piezo,pressure,solar_and_uvi',
       temp_unitid:           '2',  // Fahrenheit
       pressure_unitid:       '4',  // inHg
       wind_speed_unitid:     '9',  // mph
@@ -520,8 +520,10 @@
       const wg = gv(d.wind, 'wind_gust');
       setText('windGust', wg != null ? `${wg} mph` : '--');
 
-      // Rain — log raw object to console for debugging
-      const rain = d.rainfall ?? d.rain ?? {};
+      // Rain — try both traditional and piezo gauge keys
+      const rain = (Object.keys(d.rainfall_piezo ?? {}).length ? d.rainfall_piezo : null)
+                ?? (Object.keys(d.rainfall ?? {}).length ? d.rainfall : null)
+                ?? {};
       console.log('Full data keys:', Object.keys(d));
       console.log('Rainfall data:', JSON.stringify(rain));
 
