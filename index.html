@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=960, height=480, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Weather Station</title>
 
+  <!-- PWA -->
+  <link rel="manifest" href="/alexa-weather/manifest.json">
+  <meta name="theme-color" content="#09111f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <!-- Keep Silk browser from timing out (Echo Show) -->
   <script defer src="https://dagammla.gitlab.io/keep-silk-open/keep.js"></script>
 
@@ -77,7 +84,7 @@
     .card-wind     { background: rgba(80,210,170,0.09); border-color: rgba(80,210,170,0.16); }
     .card-rain     { background: rgba(70,145,255,0.10); border-color: rgba(70,145,255,0.20); }
     .card-uv       { background: rgba(255,200,55,0.08); border-color: rgba(255,200,55,0.16); }
-    .card-clock    { background: rgba(255,255,255,0.04); }
+    .card-soil     { background: rgba(100,190,90,0.09); border-color: rgba(100,190,90,0.20); }
 
     /* ── HERO: Outdoor ──────────────────────────────────── */
     .card-outdoor {
@@ -226,34 +233,45 @@
       transition: left 1s ease;
     }
 
-    /* ── Clock card ─────────────────────────────────────── */
-    .card-clock {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      text-align: center;
+    /* ── Soil temp card ─────────────────────────────────── */
+    .soil-zone-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: 7px;
     }
-    .clock-time {
-      font-size: 58px; font-weight: 100;
-      letter-spacing: -3px; line-height: 1;
-      white-space: nowrap;
+
+    /* ── Soil temp gradient bar ─────────────────────────── */
+    .soil-track {
+      height: 4px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #4fc3f7 0%, #81c784 35%, #aed581 55%, #ffb74d 75%, #ef5350 100%);
+      position: relative;
+      margin-top: 7px;
     }
-    .clock-ampm {
-      font-size: 18px; font-weight: 300;
-      color: rgba(255,255,255,0.5);
-      letter-spacing: 0.05em;
-      margin-top: 2px;
+    .soil-dot {
+      width: 10px; height: 10px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+      transition: left 1s ease;
     }
-    .clock-date {
-      font-size: 11px;
-      color: rgba(255,255,255,0.32);
-      margin-top: 6px;
-      letter-spacing: 0.04em;
-    }
+
+    /* ── Pulse dot (status) ─────────────────────────────── */
     .pulse-dot {
       width: 6px; height: 6px;
       border-radius: 50%;
       background: #4a9eff;
-      margin: 10px auto 0;
+      position: absolute;
+      bottom: 14px;
+      right: 16px;
       transition: background 0.6s ease;
     }
     @keyframes breathe {
@@ -418,19 +436,24 @@
     </div>
   </div>
 
-  <!-- ── SOIL TEMP (CH1) ── -->
-  <div class="card">
+  <!-- ── SOIL TEMP ── -->
+  <div class="card card-soil">
     <div class="card-label">Soil Temp</div>
     <div class="sensor-body">
       <div class="big-val" id="soilTemp">--<span class="unit">°F</span></div>
+      <div class="sub-label" id="soilZoneLabel">channel 1</div>
       <div class="spacer"></div>
       <div class="foot-rows">
         <div class="foot-row">
-          <span class="foot-key">Channel 1</span>
-          <span class="foot-val" id="soilCh1">--</span>
+          <span class="foot-key">Condition</span>
+          <span class="foot-val" id="soilZone" style="font-weight:600">--</span>
+        </div>
+        <div class="soil-track">
+          <div class="soil-dot" id="soilDot" style="left:0%"></div>
         </div>
       </div>
     </div>
+    <div class="pulse-dot" id="pulseDot"></div>
   </div>
 
 </div>
@@ -471,13 +494,28 @@
     return '#9c27b0';
   }
 
+  // Soil temperature zone — thresholds in °F
+  // Cold (<40): plants dormant, microbial activity minimal
+  // Cool (40–50): seed germination starts for cool-season crops
+  // Good (50–65): most seeds germinate, active microbial life
+  // Warm (65–80): ideal for warm-season crops
+  // Hot (>80): stress zone for many plants
+  function soilZoneInfo(f) {
+    if (f < 40)  return { label: 'Dormant',  color: '#4fc3f7', pct: Math.max(0, (f / 40) * 15) };
+    if (f < 50)  return { label: 'Cold',     color: '#81c784', pct: 15 + ((f - 40) / 10) * 15 };
+    if (f < 65)  return { label: 'Cool',     color: '#aed581', pct: 30 + ((f - 50) / 15) * 20 };
+    if (f < 80)  return { label: 'Ideal',    color: '#66bb6a', pct: 50 + ((f - 65) / 15) * 25 };
+    if (f < 95)  return { label: 'Warm',     color: '#ffb74d', pct: 75 + ((f - 80) / 15) * 15 };
+    return              { label: 'Hot',      color: '#ef5350', pct: 100 };
+  }
+
   // ── Fetch & Render ──────────────────────────────────────
   async function fetchWeather() {
     const params = new URLSearchParams({
       application_key:       APP_KEY,
       api_key:               API_KEY,
       mac:                   MAC,
-      call_back:             'outdoor,indoor,wind,rainfall,rainfall_piezo,pressure,solar_and_uvi,soil_moisture',
+      call_back:             'outdoor,indoor,wind,rainfall,rainfall_piezo,pressure,solar_and_uvi,temp_ch1',
       temp_unitid:           '2',  // Fahrenheit
       pressure_unitid:       '4',  // inHg
       wind_speed_unitid:     '9',  // mph
@@ -508,9 +546,6 @@
 
       const dew = gv(d.outdoor, 'dew_point');
       setText('outDew', dew != null ? `${dew}°F` : '--°F');
-
-      const app = gv(d.outdoor, 'app_temp') ?? gv(d.outdoor, 'feels_like');
-      setText('outApp', app != null ? `${app}°F` : '--°F');
 
       // Indoor
       const inT = gv(d.indoor, 'temperature');
@@ -574,10 +609,16 @@
         document.getElementById('uvDot').style.left = `${pct}%`;
       }
 
-      // Soil Temp (CH1)
-      const st = gv(d.soil_moisture, 'ch1', 1);
-      setHTML('soilTemp', st != null ? `${st}<span class="unit">°F</span>` : `--<span class="unit">°F</span>`);
-      setText('soilCh1', st != null ? `${st}°F` : '--');
+      // Soil Temperature (temp_ch1 = WN34 probe, channel 1)
+      const soilT = gv(d.temp_ch1, 'temperature');
+      setHTML('soilTemp', soilT != null ? `${soilT}<span class="unit">°F</span>` : '--<span class="unit">°F</span>');
+      if (soilT != null) {
+        const zone = soilZoneInfo(soilT);
+        const zoneEl = document.getElementById('soilZone');
+        zoneEl.textContent = zone.label;
+        zoneEl.style.color = zone.color;
+        document.getElementById('soilDot').style.left = `${Math.min(zone.pct, 100)}%`;
+      }
 
       // Updated timestamp + success indicator
       const now = new Date();
@@ -602,12 +643,11 @@
   }
 
   // ── Init ─────────────────────────────────────────────────
-  
   // On page load, scroll down to hide Silk address bar
   window.addEventListener('load', () => {
     setTimeout(() => { window.scrollBy(0, 120); }, 800);
   });
-  
+
   fetchWeather();
   setInterval(fetchWeather, INTERVAL);
 </script>
