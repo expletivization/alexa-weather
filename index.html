@@ -5,13 +5,6 @@
   <meta name="viewport" content="width=960, height=480, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Weather Station</title>
 
-  <!-- PWA -->
-  <link rel="manifest" href="/alexa-weather/manifest.json">
-  <meta name="theme-color" content="#09111f">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
   <!-- Keep Silk browser from timing out (Echo Show) -->
   <script defer src="https://dagammla.gitlab.io/keep-silk-open/keep.js"></script>
 
@@ -425,12 +418,19 @@
     </div>
   </div>
 
-  <!-- ── CLOCK ── -->
-  <div class="card card-clock">
-    <div class="clock-time" id="clockTime">--:--</div>
-    <div class="clock-ampm" id="clockAmpm">--</div>
-    <div class="clock-date" id="clockDate">—</div>
-    <div class="pulse-dot" id="pulseDot"></div>
+  <!-- ── SOIL TEMP (CH1) ── -->
+  <div class="card">
+    <div class="card-label">Soil Temp</div>
+    <div class="sensor-body">
+      <div class="big-val" id="soilTemp">--<span class="unit">°F</span></div>
+      <div class="spacer"></div>
+      <div class="foot-rows">
+        <div class="foot-row">
+          <span class="foot-key">Channel 1</span>
+          <span class="foot-val" id="soilCh1">--</span>
+        </div>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -477,7 +477,7 @@
       application_key:       APP_KEY,
       api_key:               API_KEY,
       mac:                   MAC,
-      call_back:             'outdoor,indoor,wind,rainfall,rainfall_piezo,pressure,solar_and_uvi',
+      call_back:             'outdoor,indoor,wind,rainfall,rainfall_piezo,pressure,solar_and_uvi,soil_moisture',
       temp_unitid:           '2',  // Fahrenheit
       pressure_unitid:       '4',  // inHg
       wind_speed_unitid:     '9',  // mph
@@ -574,6 +574,11 @@
         document.getElementById('uvDot').style.left = `${pct}%`;
       }
 
+      // Soil Temp (CH1)
+      const st = gv(d.soil_moisture, 'ch1', 1);
+      setHTML('soilTemp', st != null ? `${st}<span class="unit">°F</span>` : `--<span class="unit">°F</span>`);
+      setText('soilCh1', st != null ? `${st}°F` : '--');
+
       // Updated timestamp + success indicator
       const now = new Date();
       setText('updatedAt', `Updated ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
@@ -596,19 +601,7 @@
     setTimeout(() => { dot.style.background = '#4a9eff'; }, 1500);
   }
 
-  // ── Clock ────────────────────────────────────────────────
-  function tick() {
-    const now = new Date();
-    const h = now.getHours() % 12 || 12;
-    const m = String(now.getMinutes()).padStart(2, '0');
-    setText('clockTime', `${h}:${m}`);
-    setText('clockAmpm', now.getHours() < 12 ? 'AM' : 'PM');
-    setText('clockDate', now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }));
-  }
-
   // ── Init ─────────────────────────────────────────────────
-  tick();
-  setInterval(tick, 10_000);
   
   // On page load, scroll down to hide Silk address bar
   window.addEventListener('load', () => {
