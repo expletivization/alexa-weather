@@ -590,7 +590,7 @@
       application_key:       APP_KEY,
       api_key:               API_KEY,
       mac:                   MAC,
-      call_back:             'outdoor,indoor,wind,rainfall,rainfall_piezo,solar_and_uvi,pm25_ch1',
+      call_back:             'outdoor,indoor,wind,rainfall,rainfall_piezo,solar_and_uvi,pm25_ch1,temp_ch1',
       temp_unitid:           '2',  // Fahrenheit
       pressure_unitid:       '4',  // inHg
       wind_speed_unitid:     '9',  // mph
@@ -686,6 +686,17 @@
       setText('pm25Raw', pmRaw != null ? `${pmRaw} µg/m³` : '--');
       setText('pm25Avg', pm24 != null ? `${pm24} µg/m³` : '--');
 
+      // Soil Temperature (WN34 probe, channel 1)
+      const soilT = gv(d.temp_ch1, 'temperature');
+      if (soilT != null) {
+        setHTML('soilTemp', `${soilT}<span class="unit">°F</span>`);
+        const zone = soilZoneInfo(soilT);
+        const zoneEl = document.getElementById('soilZone');
+        zoneEl.textContent = zone.label;
+        zoneEl.style.color = zone.color;
+        document.getElementById('soilDot').style.left = `${Math.min(zone.pct, 100)}%`;
+      }
+
       // Solar & UV
       const sol = gv(d.solar_and_uvi, 'solar', 0);
       setHTML('solar', sol != null ? `${sol}<span class="unit"> W/m²</span>` : '--');
@@ -732,48 +743,6 @@
     setTimeout(() => { dot.style.background = '#4a9eff'; }, 1500);
   }
 
-  // ── Soil temp — separate fetch so it can't break main dashboard ──
-  async function fetchSoilTemp() {
-    // Try both possible call_back keys for the WN34 probe.
-    // The API silently ignores keys that don't match any sensor,
-    // but we try temp_ch1 first since that's what CumulusMX uses.
-    const keysToTry = ['temp_ch1', 'temp_and_humidity_ch1'];
-
-    for (const key of keysToTry) {
-      try {
-        const params = new URLSearchParams({
-          application_key: APP_KEY,
-          api_key:         API_KEY,
-          mac:             MAC,
-          call_back:       key,
-          temp_unitid:     '2',  // Fahrenheit
-        });
-        const res  = await fetch(`https://api.ecowitt.net/api/v3/device/real_time?${params}`);
-        const json = await res.json();
-
-        if (json.code !== 0) continue; // try next key
-
-        const d = json.data;
-
-        // temp_ch1 has a 'temperature' field; temp_and_humidity_ch1 also has 'temperature'
-        const soilT = gv(d[key], 'temperature');
-        if (soilT == null) continue; // no data for this key, try next
-
-        setHTML('soilTemp', `${soilT}<span class="unit">°F</span>`);
-        const zone = soilZoneInfo(soilT);
-        const zoneEl = document.getElementById('soilZone');
-        zoneEl.textContent = zone.label;
-        zoneEl.style.color = zone.color;
-        document.getElementById('soilDot').style.left = `${Math.min(zone.pct, 100)}%`;
-        return; // success — stop trying
-      } catch (err) {
-        console.warn(`Soil fetch failed for key "${key}":`, err);
-      }
-    }
-    // All keys failed — leave the card showing --
-    console.warn('Could not retrieve soil temperature from any known call_back key.');
-  }
-
   // ── Init ─────────────────────────────────────────────────
   // On page load, scroll down to hide Silk address bar
   window.addEventListener('load', () => {
@@ -781,9 +750,7 @@
   });
 
   fetchWeather();
-  fetchSoilTemp();
   setInterval(fetchWeather, INTERVAL);
-  setInterval(fetchSoilTemp, INTERVAL);
 </script>
 </body>
 </html>
